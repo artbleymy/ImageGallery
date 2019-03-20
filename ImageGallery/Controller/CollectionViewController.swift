@@ -8,11 +8,11 @@
 
 import UIKit
 
-class CollectionViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+class CollectionViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDragDelegate, UICollectionViewDropDelegate, UICollectionViewDelegateFlowLayout {
     
 
     
-    //MARK: - Collection view methods
+    //MARK: - Collection view methods init
     var images = [UIImage(named: "picture1"), UIImage(named: "picture2"), UIImage(named:"picture3"), UIImage(named: "picture4")]
     
     @IBOutlet weak var imageCollectionView: UICollectionView!{
@@ -21,6 +21,28 @@ class CollectionViewController: UIViewController, UICollectionViewDataSource, UI
             imageCollectionView.delegate = self
             imageCollectionView.dragDelegate = self
             imageCollectionView.dropDelegate = self
+            
+            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(adjustZoomImage))
+            imageCollectionView.addGestureRecognizer(pinch)
+            
+        }
+    }
+    
+    var imageScale: CGFloat = 1 {
+        didSet{
+            if imageCollectionView != nil {
+                imageCollectionView.collectionViewLayout.invalidateLayout()
+            }
+        }
+    }
+    
+    @objc func adjustZoomImage(byHandlingGestureRecognizedBy recognizer: UIPinchGestureRecognizer){
+        switch recognizer.state {
+        case .changed, .ended:
+            imageScale *= recognizer.scale
+            recognizer.scale = 1.0
+        default:
+            break
         }
     }
     
@@ -38,7 +60,10 @@ class CollectionViewController: UIViewController, UICollectionViewDataSource, UI
         return cell
     }
     
-    //Drag and drop methods
+    
+    
+    
+    //MARK: - Drag and drop methods
     private func dragItems(at indexPath: IndexPath) -> [UIDragItem]{
         if let image = (imageCollectionView.cellForItem(at: indexPath) as? ImageCollectionViewCell)?.imageView.image {
             let dragItem = UIDragItem(itemProvider: NSItemProvider(object: image))
@@ -53,7 +78,7 @@ class CollectionViewController: UIViewController, UICollectionViewDataSource, UI
         session.localContext = collectionView
         return dragItems(at: indexPath)
     }
-    
+    //drop action
     func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: UICollectionViewDropCoordinator) {
         let destinationIndexPath = coordinator.destinationIndexPath ?? IndexPath(item: 0, section: 0)
         for item in coordinator.items {
@@ -76,6 +101,7 @@ class CollectionViewController: UIViewController, UICollectionViewDataSource, UI
                     } else {
                         DispatchQueue.main.async {
                             if let image = provider as? UIImage {
+//                                print(image.size)
                                 placeholderContext.commitInsertion(dataSourceUpdates: { (insertionIndexPath) in
                                     self.images.insert(image, at: insertionIndexPath.item)
                                 })
@@ -92,11 +118,31 @@ class CollectionViewController: UIViewController, UICollectionViewDataSource, UI
     func collectionView(_ collectionView: UICollectionView, canHandle session: UIDropSession) -> Bool {
         return session.canLoadObjects(ofClass: UIImage.self)
     }
-    
+    //refresh cell after update
     func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
         let isSelf = (session.localDragSession?.localContext as? UICollectionView) == imageCollectionView
         return UICollectionViewDropProposal(operation: isSelf ? .move : .copy, intent: .insertAtDestinationIndexPath)
     }
+    //MARK: - Resizing of cell
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        var size = CGSize(width: 0.0, height: 0.0)
+        if let image = images[indexPath.item] {
+            let width: CGFloat = 200.0 * imageScale
+            let height = width * image.size.height / image.size.width
+            size =  CGSize(width: width, height: height)
+        }
+        return size
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
+        return 1
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+        return 10000.0
+    }
+    
+   
     
     
     override func viewDidLoad() {
